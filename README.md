@@ -13,7 +13,7 @@ This project offers a full workflow for developing custom YOLOv8 object detectio
 
 ---
 
-### 🗂Components
+### Components
 
 #### `builder.py` — **Video Recorder**
 
