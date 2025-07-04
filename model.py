@@ -89,4 +89,4 @@ model.train(
     exist_ok=True           # Overwrite if it exists
 )
 
-shutil.copy("runs/detect/train9/weights/best.pt", "model/my_model.pt")
+shutil.copy("runs/detect/train/weights/best.pt", "model/my_model.pt")

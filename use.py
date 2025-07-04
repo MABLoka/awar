@@ -1,34 +1,71 @@
 import cv2
 from ultralytics import YOLO
+import tkinter as tk
+from threading import Thread
 
-# Load your trained model
-model = YOLO("runs/detect/train/weights/best.pt")
+# --- Global control flag ---
+running = False
+cap = None
 
-# model = YOLO("yolov8n.pt")
-# Open webcam (0 = default camera)
-cap = cv2.VideoCapture(0)
+# Load YOLO model
+model = YOLO("runs/detect/train/weights/best.pt")  # Adjust the path as needed
 
-if not cap.isOpened():
-    print("Error: Cannot open webcam")
-    exit()
+def start_detection():
+    global running, cap
+    if running:
+        return  # Already running
+    running = True
+    cap = cv2.VideoCapture(0)
+    if not cap.isOpened():
+        print("Error: Cannot open webcam")
+        running = False
+        return
 
-while True:
-    ret, frame = cap.read()
-    if not ret:
-        break
+    detection_thread = Thread(target=run_detection)
+    detection_thread.start()
 
-    # Run inference (pass frame as numpy array)
-    results = model(frame)
+def run_detection():
+    global running, cap
 
-    # results[0].plot() returns an image with boxes drawn
-    annotated_frame = results[0].plot()
+    while running and cap.isOpened():
+        ret, frame = cap.read()
+        if not ret:
+            break
 
-    # Show frame
-    cv2.imshow("YOLOv8 Live Detection", annotated_frame)
+        # Run inference
+        results = model(frame)
 
-    # Exit on ESC or 'q' key
-    if cv2.waitKey(1) & 0xFF in (27, ord('q')):
-        break
+        # Draw boxes
+        annotated_frame = results[0].plot()
 
-cap.release()
-cv2.destroyAllWindows()
+        # Show in OpenCV window
+        cv2.imshow("YOLOv8 Live Detection", annotated_frame)
+
+        # Exit if user presses 'q' or ESC
+        key = cv2.waitKey(1) & 0xFF
+        if key in (27, ord('q')):
+            stop_detection()
+            break
+
+    if cap:
+        cap.release()
+    cv2.destroyAllWindows()
+
+def stop_detection():
+    global running
+    running = False
+
+# --- tkinter GUI ---
+root = tk.Tk()
+root.title("YOLOv8 Live Detection")
+
+start_button = tk.Button(root, text="Start Detection", command=start_detection)
+start_button.pack(pady=10)
+
+stop_button = tk.Button(root, text="Stop Detection", command=stop_detection)
+stop_button.pack(pady=10)
+
+exit_button = tk.Button(root, text="Exit", command=lambda: (stop_detection(), root.quit()))
+exit_button.pack(pady=10)
+
+root.mainloop()

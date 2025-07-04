@@ -1,65 +1,87 @@
 import cv2
 import time
-import pickle
-import numpy as np
-from itertools import combinations
-import threading
+import tkinter as tk
+from tkinter import ttk
+from threading import Thread
 
+# --- GUI Setup ---
+def builder(tk.Frame):
+    def start_recording():
+        try:
+            fps = int(fps_entry.get())
+            duration = int(duration_entry.get())
+            resolution = resolution_var.get()
 
-# --- Configuration ---
-output_filename = 'recorded_video.avi'
-target_fps = 20   # Desired frames per second for the output video
-recording_duration_seconds = 10 # Desired recording duration in seconds
-333333
-# For webcam:
-cap = cv2.VideoCapture(0) # 0 for default webcam, 1 for external, etc.
+            width, height = map(int, resolution.split('x'))
 
-# Request Full HD resolution (1920x1080)
-cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
-cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
+            # Start recording in a separate thread
+            recording_thread = Thread(target=record_video, args=(fps, duration, width, height))
+            recording_thread.start()
+        except ValueError:
+            print("Please enter valid numbers for FPS and Duration.")
 
-if not cap.isOpened():
-    print("Error: Could not open video source.")
-    exit()
+    def record_video(fps, duration, width, height):
+        output_filename = 'recorded_video.avi'
 
-# Get frame dimensions from the camera
-frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        cap = cv2.VideoCapture(0)
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
 
-# --- Initialize VideoWriter ---
-fourcc = cv2.VideoWriter_fourcc(*'XVID') # Codec for .avi files
-out = cv2.VideoWriter(output_filename, fourcc, target_fps, (frame_width, frame_height))
+        if not cap.isOpened():
+            print("Error: Could not open video source.")
+            return
 
-# --- Record Video ---
-start_time = time.time()
-frames_recorded = 0
+        actual_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        actual_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
-while True:
-    ret, frame = cap.read()
+        fourcc = cv2.VideoWriter_fourcc(*'XVID')
+        out = cv2.VideoWriter(output_filename, fourcc, fps, (actual_width, actual_height))
 
-    if not ret:
-        print("Error: Failed to read frame.")
-        break
+        start_time = time.time()
 
-    # Write the frame to the output video file
-    out.write(frame)
-    frames_recorded += 1
+        while True:
+            ret, frame = cap.read()
+            if not ret:
+                print("Error: Failed to read frame.")
+                break
 
-    # Display the live feed (optional)
-    cv2.imshow('Live Feed', frame)
+            out.write(frame)
+            cv2.imshow('Live Feed', frame)
 
-    # Check if recording duration or frame count is met
-    elapsed_time = time.time() - start_time
-    if elapsed_time >= recording_duration_seconds:
-        print(f"Recording finished after {recording_duration_seconds} seconds.")
-        break
+            elapsed_time = time.time() - start_time
+            if elapsed_time >= duration:
+                print(f"Recording finished after {duration} seconds.")
+                break
 
-    # Exit on 'q' key press
-    if cv2.waitKey(1) & 0xFF == ord('q'):
-        print("Recording stopped by user.")
-        break
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                print("Recording stopped by user.")
+                break
 
-# --- Release Resources ---
-cap.release()
-out.release()
-cv2.destroyAllWindows()
+        cap.release()
+        out.release()
+        cv2.destroyAllWindows()
+
+    # --- Create tkinter GUI ---
+    root = tk.Tk()
+    root.title("Video Recorder")
+
+    tk.Label(root, text="Frame Rate (FPS):").grid(row=0, column=0, sticky='e')
+    fps_entry = tk.Entry(root)
+    fps_entry.insert(0, "20")
+    fps_entry.grid(row=0, column=1)
+
+    tk.Label(root, text="Duration (seconds):").grid(row=1, column=0, sticky='e')
+    duration_entry = tk.Entry(root)
+    duration_entry.insert(0, "10")
+    duration_entry.grid(row=1, column=1)
+
+    tk.Label(root, text="Resolution:").grid(row=2, column=0, sticky='e')
+    resolution_var = tk.StringVar(value="1920x1080")
+    res_options = ["640x480", "1280x720", "1920x1080"]
+    res_menu = ttk.Combobox(root, textvariable=resolution_var, values=res_options, state="readonly")
+    res_menu.grid(row=2, column=1)
+
+    start_button = tk.Button(root, text="Start Recording", command=start_recording)
+    start_button.grid(row=3, column=0, columnspan=2, pady=10)
+
+    root.mainloop()
